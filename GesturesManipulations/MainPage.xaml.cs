@@ -1,66 +1,42 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Windows.UI;
-using Windows.UI.Xaml;
+﻿using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Navigation;
-
-// The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
 namespace GesturesManipulations
 {
     /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// https://stackoverflow.com/questions/36727020/uwp-manipulation-with-rotation-scale-and-pan
     /// </summary>
     public sealed partial class MainPage : Page
     {
         public MainPage()
         {
             this.InitializeComponent();
+            (this.Content as FrameworkElement).DataContext = this;
         }
 
-        private void OnManipulationDelta(object sender, ManipulationDeltaRoutedEventArgs e)
+        void Viewbox_OnManipulationDelta(object sender, ManipulationDeltaRoutedEventArgs e)
         {
-            FrameworkElement origin = sender as FrameworkElement;
-            FrameworkElement parent = origin.Parent as FrameworkElement;
+            // store earlier manipulations
+            previousTransform.Matrix = transformGroup.Value;
 
-            var localCoords = e.Position;
-            var relativeTransform = origin.TransformToVisual(parent);
-            Point parentContainerCoords = relativeTransform.TransformPoint(localCoords);
-            var center = parentContainerCoords;
+            // init center
+            var center = previousTransform.TransformPoint(e.Position);
+            deltaTransform.CenterX = center.X;
+            deltaTransform.CenterY = center.Y;
 
-            // translate/panning
-            translateTransform.X += e.Delta.Translation.X;
-            translateTransform.Y += e.Delta.Translation.Y;
+            // rotation
+            deltaTransform.Rotation = e.Delta.Rotation;
 
-            rotateTransform.CenterX = center.X;
-            rotateTransform.CenterY = center.Y;
-            rotateTransform.Angle += e.Delta.Rotation;
+            // Check to see if we are over our scale, then reset to scale to max or min scale
 
-            scaleTransform.CenterX = center.X;
-            scaleTransform.CenterY = center.Y;
-            scaleTransform.ScaleX *= e.Delta.Scale;
-            scaleTransform.ScaleY *= e.Delta.Scale;
-        }
+            // scale
+            deltaTransform.ScaleX = e.Delta.Scale;
+            deltaTransform.ScaleY = e.Delta.Scale;
 
-        private void AddHotspot(Color color, Point center)
-        {
-            var spot = new Windows.UI.Xaml.Shapes.Ellipse();
-            spot.Width = spot.Height = 20;
-            spot.Fill = new SolidColorBrush(color);
-            Canvas.SetLeft(spot, center.X - 10.0);
-            Canvas.SetTop(spot, center.Y - 10.0);
-
-            //canvasHotspot.Children.Add(spot);
+            // pan
+            deltaTransform.TranslateX = e.Delta.Translation.X;
+            deltaTransform.TranslateY = e.Delta.Translation.Y;
         }
     }
 }

@@ -7,23 +7,20 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Canvas x:Name="container" Background="Silver">
-        <Image
-            x:Name="image"
-            Stretch="Uniform"
-            Canvas.Left="100" Canvas.Top="200"
-            Source="Assets/windows10-uwp.jpg"
-            ManipulationMode="TranslateX,TranslateY,Scale,Rotate"
-            ManipulationDelta="OnManipulationDelta">
-
-            <Image.RenderTransform>
-                <TransformGroup>
-                    <ScaleTransform x:Name="scaleTransform" />
-                    <RotateTransform x:Name="rotateTransform" />
-                    <TranslateTransform x:Name="translateTransform" />
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" x:Name="MainGrid">
+        <Viewbox ManipulationMode="TranslateX, TranslateY, Rotate, Scale"
+             ManipulationDelta="Viewbox_OnManipulationDelta">
+            <Grid>
+                <Image Source="Assets/windows10-uwp.jpg" />
+            </Grid>
+            
+            <!-- transform -->
+            <Viewbox.RenderTransform>
+                <TransformGroup x:Name="transformGroup">
+                    <MatrixTransform x:Name="previousTransform" />
+                    <CompositeTransform x:Name="deltaTransform" />
                 </TransformGroup>
-            </Image.RenderTransform>
-        </Image>
-
-    </Canvas>
+            </Viewbox.RenderTransform>
+        </Viewbox>
+    </Grid>
 </Page>
