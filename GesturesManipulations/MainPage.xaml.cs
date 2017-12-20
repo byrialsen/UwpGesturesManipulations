@@ -4,6 +4,7 @@ using Windows.Foundation;
 using Windows.System;
 using Windows.UI.Core;
 using Windows.UI.Input;
+using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
@@ -58,6 +59,7 @@ namespace GesturesManipulations
             if (transformGroup.Value.GetScale() > MAX_ZOOM || transformGroup.Value.GetScale() < MIN_ZOOM)
             {
                 deltaTransform.ScaleX = deltaTransform.ScaleY = 1.0;
+
             }
         }
 
@@ -88,12 +90,19 @@ namespace GesturesManipulations
             // store existing transformation and to prepare new
             Point posOnElement = e.GetPosition(ManipulationElement);
             Point center = StoreTransformationsAndGetCenter(posOnElement);
+            //e.GetPosition(Window.Current.CoreWindow.Bounds);
+
+            // reset 
+            double existingScale = deltaTransform.ScaleX;
+            transformGroup.Children.RemoveAt(1);
+            deltaTransform = new CompositeTransform();
+            transformGroup.Children.Add(deltaTransform);
 
             // handle scale
             deltaTransform.CenterX = center.X;
             deltaTransform.CenterY = center.Y;
 
-            if (deltaTransform.ScaleX < 1.1)
+            if (existingScale < 1.1)
             {
                 // zoom in
                 deltaTransform.ScaleX = deltaTransform.ScaleY = 3.0;
@@ -113,6 +122,8 @@ namespace GesturesManipulations
         /// <returns></returns>
         private Point StoreTransformationsAndGetCenter(Point pos)
         {
+            System.Diagnostics.Debug.WriteLine($"Pos: {pos.ToVector2()}");
+
             // store transformation into matrix
             previousTransform.Matrix = transformGroup.Value;
 
@@ -201,49 +212,43 @@ namespace GesturesManipulations
                 // handle scale
                 else
                 {
-                    // get pointer pos
+                    // store existing transformation and to prepare new
                     PointerPoint pointerPoint = e.GetCurrentPoint(this.ManipulationElement);
+                    Point center = StoreTransformationsAndGetCenter(pointerPoint.Position);
 
-                    // handle zoom/scale
+                    // reset
+                    transformGroup.Children.RemoveAt(1);
+                    deltaTransform = new CompositeTransform();
+                    transformGroup.Children.Add(deltaTransform);
+
+                    // get mouse wheel (touchpad) info
                     double deltaScroll = pointerPoint.Properties.MouseWheelDelta * -1;
-                    deltaScroll = (deltaScroll > 0) ? 0.90 : 1.1;
-                    double? newScale = ZoomWithContraints(transformGroup.Value, deltaScroll); // deltaTransform.ScaleX * deltaScroll;
+                    deltaScroll = (deltaScroll > 0) ? 0.9 : 1.1;
+                    
+                    // handle zoom/scale
+                    deltaTransform.CenterX = center.X;
+                    deltaTransform.CenterY = center.Y;
+                    deltaTransform.ScaleX = deltaTransform.ScaleY = deltaScroll;
 
-                    if (newScale != null)
-                    {
-                        // store earlier manipulations
-                        previousTransform.Matrix = transformGroup.Value;
-
-                        // init center
-
-                        var center = previousTransform.TransformPoint(pointerPoint.Position);
-
-                        deltaTransform.CenterX = center.X;
-                        deltaTransform.CenterY = center.Y;
-                        deltaTransform.ScaleX = deltaTransform.ScaleY = newScale.Value;
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine("");
-                    }
+                    ConstrainScale();
                 }
             }
         }
 
-        private double? ZoomWithContraints(Matrix matrix, double deltaZoom)
-        {
-            // calc new scale
-            double newScale = matrix.GetScale() * deltaZoom;
+        //private double? ZoomWithContraints(Matrix matrix, double deltaZoom)
+        //{
+        //    // calc new scale
+        //    double newScale = matrix.GetScale() * deltaZoom;
 
-            // ensure newScale is between constraints
-            double result = (newScale <= MAX_ZOOM && newScale >= MIN_ZOOM) ? deltaZoom : 1.0;
+        //    // ensure newScale is between constraints
+        //    double result = (newScale <= MAX_ZOOM && newScale >= MIN_ZOOM) ? deltaZoom : 1.0;
 
-            if (result == 1.0)
-                return null;
-            else
-                return newScale;
+        //    if (result == 1.0)
+        //        return null;
+        //    else
+        //        return newScale;
 
-        }
+        //}
 
         private void btnRefresh_Click(object sender, RoutedEventArgs e)
         {
