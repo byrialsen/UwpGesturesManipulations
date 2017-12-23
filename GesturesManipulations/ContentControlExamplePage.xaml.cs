@@ -26,5 +26,10 @@ namespace GesturesManipulations
         {
             this.InitializeComponent();
         }
+
+        private void OnLog(string text)
+        {
+            this.tbLog.Text += text + Environment.NewLine;
+        }
     }
 }

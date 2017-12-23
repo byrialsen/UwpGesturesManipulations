@@ -11,13 +11,18 @@
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="100" />
+            <RowDefinition Height="5*" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <Rectangle Fill="Purple" />
 
-        <controls:ManipulationContentControl Grid.Row="1" Background="Green">
-                <Image Source="Assets/windows10-uwp.jpg" Stretch="Fill" />
+        <controls:ManipulationContentControl Grid.Row="1" LogEvent="OnLog">
+                <Image Source="Assets/windows10-uwp.jpg" />
         </controls:ManipulationContentControl>
+
+        <ScrollViewer VerticalScrollBarVisibility="Visible" Background="Silver">
+            <TextBlock x:Name="tbLog" Grid.Row="2" />
+        </ScrollViewer>
     </Grid>
 </Page>

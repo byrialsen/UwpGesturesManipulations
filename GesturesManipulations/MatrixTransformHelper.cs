@@ -12,12 +12,7 @@ namespace GesturesManipulations
 
         public static double GetScale(this Matrix matrix)
         {
-            return matrix.M11;
-        }
-
-        public static void SetScale(this Matrix matrix, double scale)
-        {
-            matrix.M11 = matrix.M22 = scale;
+            return Math.Abs(matrix.M11);
         }
     }
 }

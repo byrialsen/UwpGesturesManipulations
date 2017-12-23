@@ -14,21 +14,9 @@
                         Background="Transparent"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter BorderBrush="Purple" BorderThickness="1" />
+                            <ContentPresenter />
                         </Border>
                     </Viewbox>
-                    <!-- 
-                    <Viewbox Stretch="Uniform">
-                        <Border 
-                            x:Name="PART_Border"
-                            Background="Red"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            Clip="{Binding RelativeSource={RelativeSource Mode=Self}}">
-                            <ContentPresenter BorderBrush="Purple" BorderThickness="0" />
-                        </Border>
-                    </Viewbox>
-                    -->
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

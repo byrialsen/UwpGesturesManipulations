@@ -14,13 +14,15 @@ namespace GesturesManipulations.Controls
     [TemplatePart(Name = BorderPartName, Type = typeof(Border))]
     public sealed class ManipulationContentControl : ContentControl
     {
-        #region Fields/const
+        #region Fields/const/events
 
         private const string BorderPartName = "PART_Border";
+
         Border _border;
-        TransformGroup transformGroup;
-        MatrixTransform previousTransform;
-        CompositeTransform deltaTransform;
+        TransformGroup _currentTransformations;
+
+        public delegate void Log(string text);
+        public event Log LogEvent;
 
         #endregion Fields/const
 
@@ -111,6 +113,7 @@ namespace GesturesManipulations.Controls
             // design mode
             if (Windows.ApplicationModel.DesignMode.DesignModeEnabled)
             {
+                // do something to please designer
             }
         }
 
@@ -127,8 +130,8 @@ namespace GesturesManipulations.Controls
                 throw new NullReferenceException();
             }
 
-            InitializeManipulation();
-            InitializeAndReset();
+            SetupManipulation();
+            InitializeTransformation();
 
             _border.ManipulationDelta += OnManipulationDelta;
             _border.ManipulationCompleted += OnManipulationCompleted;
@@ -140,9 +143,14 @@ namespace GesturesManipulations.Controls
             base.OnApplyTemplate();
         }
 
+        /// <summary>
+        /// Controls SizeChanged event handler
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnControlSizeChanged(object sender, SizeChangedEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("SizeChanged");
+            DoLog($"SizeChanged {e.NewSize.ToVector2()}");
 
             Clip = new RectangleGeometry()
             {
@@ -150,9 +158,14 @@ namespace GesturesManipulations.Controls
             };
         }
 
+        /// <summary>
+        /// Handles touchpad and mouse rotation/zoom (ok)
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnPointerWheelChanged(object sender, PointerRoutedEventArgs e)
         {
-            //System.Diagnostics.Debug.WriteLine("OnWheelChanged");
+            DoLog("PointerWheelChanged");
 
             // get keystates
             bool shift = (e.KeyModifiers & VirtualKeyModifiers.Shift) == VirtualKeyModifiers.Shift;
@@ -160,128 +173,133 @@ namespace GesturesManipulations.Controls
 
             if (ctrl)
             {
+                // get new transformation
+                var newTransformation = FlattenTransformationGroup();
+
+                var newDeltaTransform = newTransformation.Children.OfType<CompositeTransform>().FirstOrDefault();
+                if (newDeltaTransform == null)
+                {
+                    return;
+                }
+
+                // get center in respect to existing transformations
+                Point center = _currentTransformations.TransformPoint(e.GetCurrentPoint(_border).Position);
+                newDeltaTransform.CenterX = center.X;
+                newDeltaTransform.CenterY = center.Y;
+
+                // get scroll info
+                var deltaScroll = (-1 * e.GetCurrentPoint(_border).Properties.MouseWheelDelta) > 0 ? 0.9 : 1.1;
+
                 // handle rotation
                 if (shift)
                 {
-                    // store earlier manipulations
-                    PointerPoint pointerCenter = e.GetCurrentPoint(_border);
-                    Point center = StoreTransformationsAndGetCenter(pointerCenter.Position);
-                    //previousTransform.Matrix = transformGroup.Value;
-                    //System.Diagnostics.Debug.WriteLine($"Offset ({previousTransform.Matrix.OffsetX},{previousTransform.Matrix.OffsetY})");
-
-                    // init
-                    var delta = pointerCenter.Properties.MouseWheelDelta;
-
-                    // init center
-                    
-                    deltaTransform.CenterX = center.X;
-                    deltaTransform.CenterY = center.Y;
-
-                    //var delta = PointerPoint.GetCurrentPoint(e.Pointer.PointerId).Properties.MouseWheelDelta;
-                    //// With my mouse, delta is a multiple of 30.
-                    //deltaTransform.CenterX = PointerPoint.GetCurrentPoint(e.Pointer.PointerId).Position.X;
-                    //deltaTransform.CenterY = PointerPoint.GetCurrentPoint(e.Pointer.PointerId).Position.Y;
-
                     // rotation
-                    if (delta > 0)
+                    if (deltaScroll > 1)
                     {
-                        deltaTransform.Rotation = -15.0;
-                        System.Diagnostics.Debug.WriteLine($"delta > 0 -> {deltaTransform.Rotation}");
+                        newDeltaTransform.Rotation = -15.0;
+                        DoLog($"delta > 0 -> {newDeltaTransform.Rotation}");
                     }
-                    else if (delta < 0)
+                    else if (deltaScroll < 1)
                     {
-                        deltaTransform.Rotation = 15.0;
-                        System.Diagnostics.Debug.WriteLine($"dekta < 0 -> {deltaTransform.Rotation}");
+                        newDeltaTransform.Rotation = 15.0;
+                        DoLog($"delta < 0 -> {newDeltaTransform.Rotation}");
                     }
                 }
                 // handle scale
                 else
                 {
-                    // store existing transformation and to prepare new
-                    PointerPoint pointerPoint = e.GetCurrentPoint(_border);
-                    Point center = StoreTransformationsAndGetCenter(pointerPoint.Position);
-
-                    // reset
-                    //ResetTransform<CompositeTransform>();
-                    transformGroup.Children.RemoveAt(1);
-                    deltaTransform = new CompositeTransform();
-                    transformGroup.Children.Add(deltaTransform);
-
-                    // get mouse wheel (touchpad) info
-                    double deltaScroll = pointerPoint.Properties.MouseWheelDelta * -1;
-                    deltaScroll = (deltaScroll > 0) ? 0.9 : 1.1;
-
-                    // handle zoom/scale
-                    deltaTransform.CenterX = center.X;
-                    deltaTransform.CenterY = center.Y;
-                    deltaTransform.ScaleX = deltaTransform.ScaleY = deltaScroll;
-
-                    TressholdScale();
+                    newDeltaTransform.ScaleX = newDeltaTransform.ScaleY = deltaScroll;
+                    if (!CheckScaleTresshold(newTransformation))
+                    {
+                        return;
+                    }
                 }
+
+                // update with new transformations
+                _border.RenderTransform = _currentTransformations = newTransformation;
             }
         }
 
+        /// <summary>
+        /// Handles touchpad/tourch/mouse dbl click (ok)
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
         {
-            //System.Diagnostics.Debug.WriteLine("Double tapped");
+            //DoLog("Double tapped");
 
-            // store existing transformation and to prepare new
-            Point posOnElement = e.GetPosition(_border);
-            Point center = StoreTransformationsAndGetCenter(posOnElement);
-            //e.GetPosition(Window.Current.CoreWindow.Bounds);
+            // get new transformation
+            var newTransformation = FlattenTransformationGroup();
+
+            var newDeltaTransform = newTransformation.Children.OfType<CompositeTransform>().FirstOrDefault();
+            if (newDeltaTransform == null)
+            {
+                return;
+            }
+
+            // get center in respect to existing transformations
+            Point center = _currentTransformations.TransformPoint(e.GetPosition(_border));
+            newDeltaTransform.CenterX = center.X;
+            newDeltaTransform.CenterY = center.Y;
 
             // reset 
-            double existingScale = deltaTransform.ScaleX;
-            transformGroup.Children.RemoveAt(1);
-            deltaTransform = new CompositeTransform();
-            transformGroup.Children.Add(deltaTransform);
+            double existingScale = newTransformation.Value.GetScale();
 
-            // handle scale
-            deltaTransform.CenterX = center.X;
-            deltaTransform.CenterY = center.Y;
-
+            // handle scaling
             if (existingScale < 1.1)
             {
                 // zoom in
-                deltaTransform.ScaleX = deltaTransform.ScaleY = 3.0;
+                newDeltaTransform.ScaleX = newDeltaTransform.ScaleY = 3.0;
             }
             else
             {
                 // reset zoom
-                deltaTransform.ScaleX = deltaTransform.ScaleY = (1 / previousTransform.Matrix.GetScale());
+                newDeltaTransform.ScaleX = newDeltaTransform.ScaleY = (1 / existingScale);
             }
+
+            // apply transformations
+            _border.RenderTransform = _currentTransformations = newTransformation;
         }
 
         private void OnManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("Manipulation completed");
+            DoLog("Manipulation completed");
         }
 
         private void OnManipulationDelta(object sender, ManipulationDeltaRoutedEventArgs e)
         {
-            //System.Diagnostics.Debug.WriteLine("Manipulation delta");
+            //DoLog("Manipulation delta");
 
-            // store existing transformation and to prepare new
-            Point center = StoreTransformationsAndGetCenter(e.Position);
+            // get new transformation
+            var newTransformation = FlattenTransformationGroup();
 
-            deltaTransform.CenterX = center.X;
-            deltaTransform.CenterY = center.Y;
+            var newDeltaTransform = newTransformation.Children.OfType<CompositeTransform>().FirstOrDefault();
+            if (newDeltaTransform == null)
+            {
+                return;
+            }
+
+            // get center in respect to existing transformations
+            Point center = _currentTransformations.TransformPoint(e.Position);
+            newDeltaTransform.CenterX = center.X;
+            newDeltaTransform.CenterY = center.Y;
 
             // rotation
-            deltaTransform.Rotation = e.Delta.Rotation;
+            //newDeltaTransform.Rotation = e.Delta.Rotation;
 
             // scale
-            deltaTransform.ScaleX = e.Delta.Scale;
-            deltaTransform.ScaleY = e.Delta.Scale;
-            TressholdScale();
+            //newDeltaTransform.ScaleX = newDeltaTransform.ScaleY = e.Delta.Scale;
+            //TressholdScale();
 
             // pan
-            deltaTransform.TranslateX = e.Delta.Translation.X;
-            deltaTransform.TranslateY = e.Delta.Translation.Y;
+            newDeltaTransform.TranslateX = e.Delta.Translation.X;
+            newDeltaTransform.TranslateY = e.Delta.Translation.Y;
             //ConstrainPan();
-        }
 
-        #endregion Methods
+            // apply transformations
+            _border.RenderTransform = _currentTransformations = newTransformation;
+        }
 
         /// <summary>
         /// Store existing transformation in matrix 
@@ -289,31 +307,33 @@ namespace GesturesManipulations.Controls
         /// </summary>
         /// <param name="pos"></param>
         /// <returns></returns>
-        private Point StoreTransformationsAndGetCenter(Point pos)
+        private TransformGroup FlattenTransformationGroup()
         {
-            System.Diagnostics.Debug.WriteLine($"Pos: {pos.ToVector2()}");
+            //DoLog($"");
 
-            // store transformation into matrix
-            previousTransform.Matrix = transformGroup.Value;
+            TransformGroup newTransformGroup = new TransformGroup();
+            newTransformGroup.Children.Add(new MatrixTransform() { Matrix = _currentTransformations.Value });
+            newTransformGroup.Children.Add(new CompositeTransform());
 
-            // return center in respect to previous transformations
-            return previousTransform.TransformPoint(pos);
+            return newTransformGroup;
         }
 
-        public void InitializeAndReset()
+        /// <summary>
+        /// Initialize transformations
+        /// </summary>
+        public void InitializeTransformation()
         {
-            _border.RenderTransform = null;
+            TransformGroup newTransformGroup = new TransformGroup();
+            newTransformGroup.Children.Add(new MatrixTransform() { Matrix = Matrix.Identity });
+            newTransformGroup.Children.Add(new CompositeTransform());
 
-            transformGroup = new TransformGroup();
-            previousTransform = new MatrixTransform() { Matrix = Matrix.Identity };
-            deltaTransform = new CompositeTransform();
-
-            transformGroup.Children.Add(previousTransform);
-            transformGroup.Children.Add(deltaTransform);
-
-            _border.RenderTransform = transformGroup;
+            _currentTransformations = newTransformGroup;
         }
-        private void InitializeManipulation()
+
+        /// <summary>
+        /// Setup Manipulation objects
+        /// </summary>
+        private void SetupManipulation()
         {
             _border.IsTapEnabled = true;
             _border.IsDoubleTapEnabled = true;
@@ -336,22 +356,20 @@ namespace GesturesManipulations.Controls
             }
         }
 
-        private void TressholdScale()
+        private bool CheckScaleTresshold(TransformGroup newTransformations)
         {
-            if (transformGroup.Value.GetScale() > MaxZoomFactor || transformGroup.Value.GetScale() < MinZoomFactor)
-            {
-                deltaTransform.ScaleX = deltaTransform.ScaleY = 1.0;
-            }
+            return (newTransformations.Value.GetScale() <= MaxZoomFactor && newTransformations.Value.GetScale() >= MinZoomFactor);
         }
 
-        private void ResetTransform<T>()
+        /// <summary>
+        /// Logging methods
+        /// </summary>
+        /// <param name="text"></param>
+        private void DoLog(string text)
         {
-            if (transformGroup != null)
-            {
-                transformGroup.Children.ToList().RemoveAll(x => x.GetType() is T);
-                Transform transform = default(T) as Transform;
-                transformGroup.Children.Add(transform);
-            }
+            LogEvent?.Invoke(text);
         }
+
+        #endregion Methods
     }
 }
