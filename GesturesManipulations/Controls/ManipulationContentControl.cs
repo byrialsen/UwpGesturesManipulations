@@ -211,7 +211,7 @@ namespace GesturesManipulations.Controls
                     newDeltaTransform.ScaleX = newDeltaTransform.ScaleY = deltaScroll;
                     if (!CheckScaleTresshold(newTransformation))
                     {
-                        return;
+                        newDeltaTransform.ScaleX = newDeltaTransform.ScaleY = 1.0;
                     }
                 }
 
@@ -285,17 +285,17 @@ namespace GesturesManipulations.Controls
             newDeltaTransform.CenterX = center.X;
             newDeltaTransform.CenterY = center.Y;
 
-            // rotation
-            //newDeltaTransform.Rotation = e.Delta.Rotation;
-
-            // scale
-            //newDeltaTransform.ScaleX = newDeltaTransform.ScaleY = e.Delta.Scale;
-            //TressholdScale();
-
             // pan
             newDeltaTransform.TranslateX = e.Delta.Translation.X;
             newDeltaTransform.TranslateY = e.Delta.Translation.Y;
             //ConstrainPan();
+
+            // rotation
+            newDeltaTransform.Rotation = e.Delta.Rotation;
+
+            // scale
+            newDeltaTransform.ScaleX = newDeltaTransform.ScaleY = e.Delta.Scale;
+            //TressholdScale();
 
             // apply transformations
             _border.RenderTransform = _currentTransformations = newTransformation;
@@ -303,7 +303,6 @@ namespace GesturesManipulations.Controls
 
         /// <summary>
         /// Store existing transformation in matrix 
-        /// and return current center position in respect to this
         /// </summary>
         /// <param name="pos"></param>
         /// <returns></returns>
