@@ -8,19 +8,35 @@
     mc:Ignorable="d">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" x:Name="MainGrid">
-        <Viewbox ManipulationMode="TranslateX, TranslateY, Rotate, Scale"
-             ManipulationDelta="Viewbox_OnManipulationDelta">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        
+        <Viewbox
+            x:Name="ManipulationElement"
+            IsTapEnabled="True" IsDoubleTapEnabled="True"
+            ManipulationMode="TranslateX, TranslateY, Rotate, Scale"
+            ManipulationDelta="Viewbox_OnManipulationDelta"
+            ManipulationCompleted="ManipulationElement_ManipulationCompleted"
+            PointerWheelChanged="OnPointerWheelChanged"
+            DoubleTapped="OnDoubleTapped">
             <Grid>
                 <Image Source="Assets/windows10-uwp.jpg" />
             </Grid>
             
             <!-- transform -->
+
             <Viewbox.RenderTransform>
                 <TransformGroup x:Name="transformGroup">
-                    <MatrixTransform x:Name="previousTransform" />
-                    <CompositeTransform x:Name="deltaTransform" />
+                    <!--<MatrixTransform x:Name="previousTransform" />
+                    <CompositeTransform x:Name="deltaTransform" />-->
                 </TransformGroup>
             </Viewbox.RenderTransform>
         </Viewbox>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="1">
+            <Button x:Name="btnRefresh" Content="Reset"  Click="btnRefresh_Click" />
+        </StackPanel>
     </Grid>
 </Page>
